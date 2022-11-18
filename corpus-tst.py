@@ -13,8 +13,6 @@ import datetime
 #print(year)
 
 import dhlab as dh
-import dhlab.api.dhlab_api as api
-from dhlab.text.nbtokenizer import tokenize
 # for excelnedlastning
 from io import BytesIO
 
@@ -46,20 +44,20 @@ def v(x):
 
 ### Headers
 
-col_zero, col_one, col_two, col_three = st.columns(4)
-with col_two:
+col_zero, col_two = st.columns([4,1])
+with col_zero:
     st.header("Konstruer et korpus" )
     st.markdown("""Les mer om DH-labens apper på [DHLAB-siden](https://nb.no/dh-lab)""")
 
-with col_zero:    
+with col_two:    
     image = Image.open("DHlab_logo_web_en_black.png")
     st.image(image, width=250)
 
-    
+st.markdown("---")
 
-st.subheader('Tekst-type og periode')
-col1, col2, col3 = st.columns([1,1,3])
-    
+st.markdown("## Metadata")
+
+col1, col2, col3 = st.columns([ 1, 1, 3])
 with col1:
     doctype = st.selectbox(
         "Type dokument", 
@@ -67,13 +65,15 @@ with col1:
         help="Dokumenttypene følger Nasjonalbibliotekets digitale typer")
 
 with col2:
+    if doctype in ['digavis', 'digimanus']:
+        langs = []
+    else:
+        langs = ["nob", "nno", "dan", "swe", "sme", "smj", "fkv", "eng", "fra", "spa", "ger"]
     lang = st.selectbox(
         "Språk", 
-        ["nob", "nno", "dan", "swe", "sme", "smj", "fkv", "eng", "fra", "spa", "ger"],  
-        #default = "nob",                   
+        langs,  
         help="Velg fra listen"
     )
-    lang = " OR ".join(list(lang))
     if lang == "":
         lang = None
 
@@ -85,18 +85,17 @@ with col3:
     1810, year, (1950, year))
 
 
-st.subheader("Forfatter og tittel") ###################################################
-cola, colb = st.columns(2)
+###################################################
+cola, colb = st.columns([2,1])
 with cola:
-        author = st.text_input("Forfatter", "", help="Feltet blir kun tatt hensyn til for digibok")
+    author = st.text_input("Forfatter(e)", "", help="Feltet blir kun tatt hensyn til for digibok")
 
 with colb:
-        title = st.text_input("Tittel", "", help = "Søk etter titler. For aviser vil tittel matche avisnavnet.")
+    title = st.text_input("Tittel", "", help = "Søk etter titler. For aviser vil tittel matche avisnavnet.")
 
-st.subheader("Meta- og innholdsdata") ##########################################################
+##########################################################
 
-
-cold, cole, colf = st.columns(3)
+cold, cole, colf = st.columns([4,1,2])
 with cold:        
     fulltext = st.text_input(
         "Ord eller fraser i teksten", 
@@ -118,28 +117,35 @@ with colf:
 
 
 
-st.subheader("Organisering") ######################################################################
+st.subheader("Vis og last ned") ######################################################################
 df_defined = False
 with st.form(key='my_form'): 
     colx, coly,_ = st.columns([2,2,4])
     with colx:
-        limit = st.number_input(f"Maksimum antall dokument i korpuset, inntil {max_size_corpus}", min_value=1, max_value = max_size_corpus, value = int(default_size*max_size_corpus/100))
+        limit = st.number_input(f"Maks {max_size_corpus} dokumenter", min_value=1, max_value = max_size_corpus, value = int(default_size*max_size_corpus/100))
     
     with coly:
-        filnavn = st.text_input("Filnavn for nedlasting", "korpus.xlsx")
-    
+        if lang is None:
+            filnavn = st.text_input("Filnavn for nedlasting", f"{doctype}-{years[0]}-{years[1]}.xlsx")
+        else:
+            filnavn = st.text_input("Filnavn for nedlasting", f"{doctype}-{lang}-{years[0]}-{years[1]}.xlsx")
         
-    if doctype in ['digimanus']:
-        df = dh.Corpus(doctype=v(doctype), limit=limit)
-        columns = ['urn','title']
-    elif doctype in ['digavis']:
-        df = dh.Corpus(doctype=v(doctype), fulltext= v(fulltext), from_year = years[0], to_year = years[1], title=v(title), limit=limit)
+        
+    if doctype == 'digimanus':
+        df = dh.Corpus(doctype=doctype, limit=limit)
+        columns = ['urn','title','year']
+        
+    elif doctype == 'digavis':
+        df = dh.Corpus(doctype=doctype, fulltext= v(fulltext), from_year = years[0], to_year = years[1], title=v(title), limit=limit)
         columns = ['urn','title', 'year', 'timestamp', 'city']
-    elif doctype in ['digitidsskrift']:
-        df = dh.Corpus(doctype=v(doctype), author=v(author), fulltext=fulltext, from_year = years[0], to_year = years[1], title=v(title), subject=v(subject), ddk= v(ddk), lang=lang, limit=limit)
+    
+    elif doctype == 'digitidsskrift':
+        df = dh.Corpus(doctype=doctype, fulltext=v(fulltext), from_year = years[0], to_year = years[1], title=v(title), subject=v(subject), ddk= v(ddk), lang=lang, limit=limit)
         columns = ['dhlabid', 'urn', 'title','city','timestamp','year', 'publisher', 'ddc', 'langs']
+    
     else:
-        df = dh.Corpus(doctype=v(doctype), author=v(author), fulltext=v(fulltext), from_year = years[0], to_year = years[1], title=v(title), subject=v(subject), ddk= v(ddk), lang=lang, limit=limit)
+        df = dh.Corpus(doctype=doctype, author=v(author), fulltext=v(fulltext), from_year = years[0], to_year = years[1], title=v(title), subject=v(subject), ddk= v(ddk), lang=lang, limit=limit)
+        #st.write(doctype, author, fulltext, years, title, subject, ddk, lang, limit)
         columns = ['dhlabid', 'urn', 'authors', 'title','city','timestamp','year', 'publisher', 'ddc','subjects', 'langs']
 
     
